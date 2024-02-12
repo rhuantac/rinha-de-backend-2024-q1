@@ -117,5 +117,25 @@ func TestTransactions(t *testing.T) {
 			t.Errorf("request didn't returned the right status code. Got %d expected %d", w.Code, wantedCode)
 		}
 	})
+	
+	t.Run("unknown ID returns 404", func(t *testing.T) { 
+		router := setupServer()
+		accId := 10
+		endpoint := fmt.Sprintf("/clientes/%d/transacoes", accId)
+		testPayload, _ := json.Marshal(TransactionRequest{
+			Value: 100001,
+			TransactionType: "d",
+			Description: "Test transaction",
+		})
 
+		wantedCode := http.StatusNotFound
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(string(testPayload)))
+		router.ServeHTTP(w, req)
+
+		if(w.Code != wantedCode) {
+			t.Errorf("request didn't returned the right status code. Got %d expected %d", w.Code, wantedCode)
+		}
+	})
 }

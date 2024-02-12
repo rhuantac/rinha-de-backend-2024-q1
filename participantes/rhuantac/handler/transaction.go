@@ -24,10 +24,13 @@ type TransactionRequest struct {
 	TransactionType TransactionType `json:"tipo"`
 	Description     string          `json:"description"`
 }
-
 type TransactionResponse struct {
 	Limit   int `json:"limite"`
 	Balance int `json:"saldo"`
+}
+
+type ErrorResponse struct {
+	Message string
 }
 
 func TransactionHandler(db *mongo.Database) gin.HandlerFunc {
@@ -58,21 +61,22 @@ func TransactionHandler(db *mongo.Database) gin.HandlerFunc {
 		result.Decode(&user)
 
 		if result.Err() != nil {
-			c.Status(http.StatusNotFound)
+			c.JSON(http.StatusNotFound, ErrorResponse{Message: "Cliente não encontrado."})
 			return
 		}
 
 		newBalance := user.CurrentBalance + req.Value
+		
 		//Balance cannot be lower than limit value
 		if newBalance < user.Limit * -1 {
-			c.Status(http.StatusUnprocessableEntity)
+			c.JSON(http.StatusUnprocessableEntity, ErrorResponse{Message: "Saldo insuficiente."})
 			return
 		}
 
 		_, err = coll.UpdateOne(c, filter, update)
 
 		if err != nil {
-			c.Status(http.StatusBadRequest)
+			c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Falha ao efetuar transação."})
 			log.Printf("Error updating user %d", userId)
 		}
 
