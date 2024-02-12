@@ -97,4 +97,25 @@ func TestTransactions(t *testing.T) {
 
 	})
 
+	t.Run("debits won't exceed limit", func(t *testing.T) { 
+		router := setupServer()
+		accId := 1
+		endpoint := fmt.Sprintf("/clientes/%d/transacoes", accId)
+		testPayload, _ := json.Marshal(TransactionRequest{
+			Value: 100001,
+			TransactionType: "d",
+			Description: "Test transaction",
+		})
+
+		wantedCode := http.StatusUnprocessableEntity
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(string(testPayload)))
+		router.ServeHTTP(w, req)
+
+		if(w.Code != wantedCode) {
+			t.Errorf("request didn't returned the right status code. Got %d expected %d", w.Code, wantedCode)
+		}
+	})
+
 }

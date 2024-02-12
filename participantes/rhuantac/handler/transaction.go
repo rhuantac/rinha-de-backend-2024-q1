@@ -6,29 +6,29 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/rhuantac/rinha-concurrency/internal/model"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type TransactionType string
 
 const (
 	Credit TransactionType = "c"
-	Debit TransactionType = "d"
+	Debit  TransactionType = "d"
 )
+
 type TransactionRequest struct {
-	Value           int    `json:"valor"`
+	Value           int             `json:"valor"`
 	TransactionType TransactionType `json:"tipo"`
-	Description     string `json:"description"`
+	Description     string          `json:"description"`
 }
 
 type TransactionResponse struct {
 	Limit   int `json:"limite"`
 	Balance int `json:"saldo"`
 }
-
 
 func TransactionHandler(db *mongo.Database) gin.HandlerFunc {
 
@@ -45,27 +45,37 @@ func TransactionHandler(db *mongo.Database) gin.HandlerFunc {
 			return
 		}
 
-		if (req.TransactionType == Debit) {
+		if req.TransactionType == Debit {
 			req.Value *= -1
 		}
 
 		coll := db.Collection("users")
 		filter := bson.D{{Key: "_id", Value: userId}}
 		update := bson.D{{Key: "$inc", Value: bson.D{{Key: "current_balance", Value: req.Value}}}}
-		after := options.After
-		opt := options.FindOneAndUpdateOptions{
-			ReturnDocument: &after,
-		}
+
 		var user model.User
-		result := coll.FindOneAndUpdate(c, filter, update, &opt)
+		result := coll.FindOne(c, filter)
 		result.Decode(&user)
-		log.Printf("%v", user)
 
 		if result.Err() != nil {
 			c.Status(http.StatusNotFound)
 			return
 		}
 
-		c.JSON(http.StatusOK, TransactionResponse{Limit: user.Limit, Balance: user.CurrentBalance})
+		newBalance := user.CurrentBalance + req.Value
+		//Balance cannot be lower than limit value
+		if newBalance < user.Limit * -1 {
+			c.Status(http.StatusUnprocessableEntity)
+			return
+		}
+
+		_, err = coll.UpdateOne(c, filter, update)
+
+		if err != nil {
+			c.Status(http.StatusBadRequest)
+			log.Printf("Error updating user %d", userId)
+		}
+
+		c.JSON(http.StatusOK, TransactionResponse{Limit: user.Limit, Balance: newBalance})
 	}
 }
