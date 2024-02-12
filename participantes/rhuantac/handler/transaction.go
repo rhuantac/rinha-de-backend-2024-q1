@@ -12,9 +12,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type TransactionType string
+
+const (
+	Credit TransactionType = "c"
+	Debit TransactionType = "d"
+)
 type TransactionRequest struct {
 	Value           int    `json:"valor"`
-	TransactionType string `json:"tipo"`
+	TransactionType TransactionType `json:"tipo"`
 	Description     string `json:"description"`
 }
 
@@ -22,6 +28,7 @@ type TransactionResponse struct {
 	Limit   int `json:"limite"`
 	Balance int `json:"saldo"`
 }
+
 
 func TransactionHandler(db *mongo.Database) gin.HandlerFunc {
 
@@ -31,11 +38,15 @@ func TransactionHandler(db *mongo.Database) gin.HandlerFunc {
 			c.Status(http.StatusBadRequest)
 			return
 		}
-		
+
 		var req TransactionRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.Status(http.StatusBadRequest)
 			return
+		}
+
+		if (req.TransactionType == Debit) {
+			req.Value *= -1
 		}
 
 		coll := db.Collection("users")
